@@ -22,4 +22,5 @@ urlpatterns = [
     # 新增代码，配置app的url
     path('article/', include('article.urls', namespace='article')),
     path('userprofile/', include('userprofile.urls', namespace='userprofile')),
+    path('password-reset/', include('password_reset.urls')),
 ]
