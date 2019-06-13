@@ -10,13 +10,24 @@ from .forms import ArticlePostForm
 from django.contrib.auth.models import User
 import markdown
 import logging
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 
 logging.basicConfig(filename='blog.log')
 
 
 # 视图函数
 def article_list(request):
-    articles = ArticlePost.objects.all()
+    # 修改变量名称（articles -> article_list）
+    article_list = ArticlePost.objects.all()
+
+    # 每页显示 1 篇文章
+    paginator = Paginator(article_list, 1)
+    # 获取 url 中的页码
+    page = request.GET.get('page')
+    # 将导航对象相应的页码内容返回给 articles
+    articles = paginator.get_page(page)
+
     context = {'articles': articles}
     return render(request, 'article/list.html', context)
 
@@ -24,7 +35,9 @@ def article_list(request):
 def article_detail(request, id):
     article = ArticlePost.objects.get(id=id)
     # context = {'article': article}
-
+    # 浏览量 +1
+    article.total_views += 1
+    article.save(update_fields=['total_views'])
     # 将markdown语法渲染成HTML样式
     article.body = markdown.markdown(article.body,
                                      extension=['markdown.extensions.extra', 'markdown.extensions.highlight', ])
@@ -32,13 +45,16 @@ def article_detail(request, id):
     return render(request, 'article/detail.html', context)
 
 
+# 检查登录
+@login_required(login_url='/userprofile/login/')
 def article_create(request):
     if request.method == "POST":
         article_post_form = ArticlePostForm(data=request.POST)
         if article_post_form.is_valid():
             new_article = article_post_form.save(commit=False)
             # logging.debug()
-            new_article.author = User.objects.get(id=1)
+            # 指定目前登录的用户为作者
+            new_article.author = User.objects.get(id=request.user.id)
             new_article.save()
             return redirect("article:article_list")
         else:
@@ -49,6 +65,7 @@ def article_create(request):
         return render(request, 'article/create.html', context)
 
 
+@login_required(login_url='/userprofile/login/')
 def article_delete(request, id):
     article = ArticlePost.objects.get(id=id)
     article.delete()
@@ -56,6 +73,7 @@ def article_delete(request, id):
 
 
 # 更新文章
+@login_required(login_url='/userprofile/login/')
 def article_update(request, id):
     """
     更新文章的视图函数
@@ -66,6 +84,11 @@ def article_update(request, id):
 
     # 获取需要修改的具体文章对象
     article = ArticlePost.objects.get(id=id)
+
+    # 过滤非作者的用户
+    if request.user != article.author:
+        return HttpResponse("抱歉，你无权修改这篇文章。")
+
     # 判断用户是否为 POST 提交表单数据
     if request.method == "POST":
         # 将提交的数据赋值到表单实例中
