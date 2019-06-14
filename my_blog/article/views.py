@@ -19,16 +19,25 @@ logging.basicConfig(filename='blog.log')
 # 视图函数
 def article_list(request):
     # 修改变量名称（articles -> article_list）
-    article_list = ArticlePost.objects.all()
+    # article_list = ArticlePost.objects.all()
+    # article_list = ""
 
-    # 每页显示 1 篇文章
-    paginator = Paginator(article_list, 1)
+    # 根据GET请求中查询条件
+    # 返回不同排序的对象数组
+    if request.GET.get('order') == 'total_views':
+        article_list = ArticlePost.objects.all().order_by('-total_views')
+        order = 'total_views'
+    else:
+        article_list = ArticlePost.objects.all()
+        order = 'normal'
+
+    paginator = Paginator(article_list, 3)
     # 获取 url 中的页码
     page = request.GET.get('page')
     # 将导航对象相应的页码内容返回给 articles
     articles = paginator.get_page(page)
 
-    context = {'articles': articles}
+    context = {'articles': articles, 'order': order}
     return render(request, 'article/list.html', context)
 
 
